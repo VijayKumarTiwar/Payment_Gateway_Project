@@ -87,15 +87,16 @@ def seed_data():
     
     # 5. Create Budgets
     current_year = timezone.now().year
-    for cat in cats:
-        if cat.category_type != 'REVENUE':
-            for dept in depts:
-                Budget.objects.get_or_create(
-                    fiscal_year=current_year,
-                    category=cat,
-                    department=dept,
-                    defaults={'allocated_amount': random.randint(50000, 200000)}
-                )
+    for year in [current_year - 1, current_year, current_year + 1]:
+        for cat in cats:
+            if cat.category_type != 'REVENUE':
+                for dept in depts:
+                    Budget.objects.get_or_create(
+                        fiscal_year=year,
+                        category=cat,
+                        department=dept,
+                        defaults={'allocated_amount': random.randint(50000, 200000)}
+                    )
     
     # 6. Create Transactions (Last 6 months)
     # Clear old transactions to re-seed with payment methods
@@ -108,9 +109,10 @@ def seed_data():
         "Legal Compliance Audit", "Project Alpha Milestone 1", "Annual Software Renewals"
     ]
     
-    for i in range(150):
-        days_ago = random.randint(0, 180)
-        date = today - timedelta(days=days_ago)
+    for i in range(250):
+        # Data spanning 2025, 2026, and early 2027
+        days_offset = random.randint(-180, 365) 
+        date = today + timedelta(days=days_offset)
         
         cat = random.choice(cats)
         trans_type = 'INCOME' if cat.category_type in ['REVENUE', 'FINANCIAL'] else 'EXPENSE'

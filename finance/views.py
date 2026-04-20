@@ -15,28 +15,38 @@ import json
 def dashboard(request):
     """Main dashboard with financial overview and charts"""
     today = timezone.now().date()
-    current_year = today.year
+    selected_year = int(request.GET.get('year', today.year))
     
-    # Summary statistics
+    # Available years for filter
+    available_years = Transaction.objects.dates('date', 'year')
+    year_list = sorted([d.year for d in available_years], reverse=True)
+    if today.year not in year_list:
+        year_list.insert(0, today.year)
+    
+    # Summary statistics for selected year
     total_income = Transaction.objects.filter(
         transaction_type='INCOME', 
-        status__in=['APPROVED', 'RECONCILED']
+        status__in=['APPROVED', 'RECONCILED'],
+        date__year=selected_year
     ).aggregate(total=Sum('amount'))['total'] or 0
     
     total_expenses = Transaction.objects.filter(
         transaction_type='EXPENSE', 
-        status__in=['APPROVED', 'RECONCILED']
+        status__in=['APPROVED', 'RECONCILED'],
+        date__year=selected_year
     ).aggregate(total=Sum('amount'))['total'] or 0
     
     net_balance = total_income - total_expenses
     
-    # Monthly data for chart (last 6 months)
-    six_months_ago = today - timedelta(days=180)
+    # Monthly data for chart (for selected year)
     monthly_data = []
     
-    for i in range(6):
-        month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
-        month_end = (month_start + timedelta(days=32)).replace(day=1)
+    for i in range(1, 13):
+        month_start = today.replace(year=selected_year, month=i, day=1)
+        if i == 12:
+            month_end = today.replace(year=selected_year + 1, month=1, day=1)
+        else:
+            month_end = today.replace(year=selected_year, month=i + 1, day=1)
         
         income = Transaction.objects.filter(
             transaction_type='INCOME',
@@ -60,10 +70,11 @@ def dashboard(request):
     
     monthly_data.reverse()
     
-    # Category breakdown for pie chart
+    # Category breakdown for selected year
     category_expenses = Transaction.objects.filter(
         transaction_type='EXPENSE',
-        status__in=['APPROVED', 'RECONCILED']
+        status__in=['APPROVED', 'RECONCILED'],
+        date__year=selected_year
     ).values('category__name', 'category__category_type').annotate(
         total=Sum('amount')
     ).order_by('-total')[:8]
@@ -73,9 +84,9 @@ def dashboard(request):
         'category', 'department'
     ).order_by('-date')[:10]
     
-    # Budget utilization
+    # Budget utilization for selected year
     budgets = Budget.objects.filter(
-        fiscal_year=current_year
+        fiscal_year=selected_year
     ).select_related('category', 'department')[:10]
     
     # ML Insights
@@ -94,6 +105,8 @@ def dashboard(request):
         'forecast_data': forecast_data,
         'anomalies': anomalies,
         'payment_methods': payment_methods,
+        'selected_year': selected_year,
+        'year_list': year_list,
     }
     
     return render(request, 'finance/dashboard.html', context)
@@ -216,7 +229,13 @@ def transaction_edit(request, pk):
 def reports(request):
     """Financial reports and analytics"""
     today = timezone.now().date()
-    current_year = today.year
+    selected_year = int(request.GET.get('year', today.year))
+    
+    # Available years for filter
+    available_years = Transaction.objects.dates('date', 'year')
+    year_list = sorted([d.year for d in available_years], reverse=True)
+    if today.year not in year_list:
+        year_list.insert(0, today.year)
     
     # Year-to-date by category type
     category_type_summary = []
@@ -224,14 +243,14 @@ def reports(request):
         income = Transaction.objects.filter(
             transaction_type='INCOME',
             category__category_type=cat_type,
-            date__year=current_year,
+            date__year=selected_year,
             status__in=['APPROVED', 'RECONCILED']
         ).aggregate(total=Sum('amount'))['total'] or 0
         
         expense = Transaction.objects.filter(
             transaction_type='EXPENSE',
             category__category_type=cat_type,
-            date__year=current_year,
+            date__year=selected_year,
             status__in=['APPROVED', 'RECONCILED']
         ).aggregate(total=Sum('amount'))['total'] or 0
         
@@ -244,7 +263,7 @@ def reports(request):
     
     # Department summary
     dept_summary = Transaction.objects.filter(
-        date__year=current_year,
+        date__year=selected_year,
         status__in=['APPROVED', 'RECONCILED']
     ).values('department__name').annotate(
         total=Sum('amount'),
@@ -254,7 +273,8 @@ def reports(request):
     context = {
         'category_type_summary': category_type_summary,
         'dept_summary': dept_summary,
-        'current_year': current_year,
+        'selected_year': selected_year,
+        'year_list': year_list,
     }
     
     return render(request, 'finance/reports.html', context)
@@ -264,11 +284,15 @@ def reports(request):
 def api_monthly_data(request):
     """API endpoint for monthly chart data"""
     today = timezone.now().date()
+    selected_year = int(request.GET.get('year', today.year))
     monthly_data = []
     
-    for i in range(12):
-        month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
-        month_end = (month_start + timedelta(days=32)).replace(day=1)
+    for i in range(1, 13):
+        month_start = today.replace(year=selected_year, month=i, day=1)
+        if i == 12:
+            month_end = today.replace(year=selected_year + 1, month=1, day=1)
+        else:
+            month_end = today.replace(year=selected_year, month=i + 1, day=1)
         
         income = Transaction.objects.filter(
             transaction_type='INCOME',
@@ -290,7 +314,6 @@ def api_monthly_data(request):
             'expense': float(expense)
         })
     
-    monthly_data.reverse()
     return JsonResponse(monthly_data, safe=False)
 
 
