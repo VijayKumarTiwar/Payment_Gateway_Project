@@ -1,0 +1,293 @@
+{% extends 'finance/base.html' %}
+
+{% block title %}Dashboard | Corporate Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold">Financial Dashboard</h2>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#aiInsightsCollapse">
+            <i class="bi bi-robot"></i> AI Insights
+        </button>
+        <a href="{% url 'transaction_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> New Transaction
+        </a>
+    </div>
+</div>
+
+<!-- AI Insights Section -->
+<div class="collapse mb-4" id="aiInsightsCollapse">
+    <div class="card border-primary bg-primary bg-opacity-10">
+        <div class="card-body">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-stars"></i> Predictive Intelligence</h5>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="bg-white p-3 rounded shadow-sm">
+                        <h6>Expense Forecast (Next 3 Months)</h6>
+                        <ul class="list-unstyled mb-0">
+                            {% for item in forecast_data %}
+                            <li class="d-flex justify-content-between border-bottom py-2">
+                                <span>{{ item.month }}</span>
+                                <span class="fw-bold text-primary">₹{{ item.amount }}</span>
+                            </li>
+                            {% empty %}
+                            <li class="text-muted small">Not enough historical data to generate forecast.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="bg-white p-3 rounded shadow-sm">
+                        <h6>Anomaly Alerts</h6>
+                        <div style="max-height: 150px; overflow-y: auto;">
+                            {% for anomaly in anomalies %}
+                            <div class="alert alert-warning py-2 mb-2 small">
+                                <i class="bi bi-exclamation-triangle"></i> 
+                                <strong>₹{{ anomaly.amount }}</strong> - {{ anomaly.description }} ({{ anomaly.category }})
+                            </div>
+                            {% empty %}
+                            <p class="text-muted mb-0 small">No unusual spending patterns detected.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <!-- Payment Method Health -->
+                <div class="col-12">
+                    <div class="bg-white p-3 rounded shadow-sm">
+                        <h6>Payment Method Health & Limits</h6>
+                        <div class="row g-3">
+                            {% for method in payment_methods %}
+                            <div class="col-md-3">
+                                <div class="border p-2 rounded">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="fw-bold">{{ method.name }}</small>
+                                        {% if method.expiry_date %}
+                                        <small class="text-muted" style="font-size: 0.7rem;">Exp: {{ method.expiry_date|date:"M Y" }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar {% if method.limit_utilization > 90 %}bg-danger{% elif method.limit_utilization > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                                             style="width: {{ method.limit_utilization }}%"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-1">
+                                        <small class="text-muted" style="font-size: 0.7rem;">Used: ₹{{ method.current_month_spend|floatformat:0 }}</small>
+                                        <small class="text-muted" style="font-size: 0.7rem;">Limit: ₹{{ method.monthly_limit|floatformat:0 }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card income p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Total Revenue</h6>
+                    <h3 class="mb-0 fw-bold">₹{{ total_income|floatformat:2 }}</h3>
+                </div>
+                <div class="bg-success bg-opacity-10 p-3 rounded-circle">
+                    <i class="bi bi-arrow-up-circle text-success fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card expense p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Total Expenses</h6>
+                    <h3 class="mb-0 fw-bold">₹{{ total_expenses|floatformat:2 }}</h3>
+                </div>
+                <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
+                    <i class="bi bi-arrow-down-circle text-danger fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card balance p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">Net Balance</h6>
+                    <h3 class="mb-0 fw-bold">₹{{ net_balance|floatformat:2 }}</h3>
+                </div>
+                <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                    <i class="bi bi-wallet2 text-primary fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-8">
+        <div class="card table-card p-4">
+            <h5 class="card-title fw-bold mb-4">Monthly Performance (Last 6 Months)</h5>
+            <div class="chart-container">
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card table-card p-4">
+            <h5 class="card-title fw-bold mb-4">Expense by Category</h5>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions & Budgets -->
+<div class="row g-4">
+    <div class="col-md-7">
+        <div class="card table-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="card-title fw-bold mb-0">Recent Transactions</h5>
+                    <a href="{% url 'transaction_list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in recent_transactions %}
+                            <tr>
+                                <td>{{ transaction.date|date:"d M, Y" }}</td>
+                                <td>{{ transaction.description }}</td>
+                                <td><span class="badge bg-light text-dark">{{ transaction.category.name }}</span></td>
+                                <td class="fw-bold {% if transaction.transaction_type == 'INCOME' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if transaction.transaction_type == 'INCOME' %}+{% else %}-{% endif %}₹{{ transaction.amount }}
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ transaction.status|lower }}">
+                                        {{ transaction.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No transactions recorded yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card table-card">
+            <div class="card-body">
+                <h5 class="card-title fw-bold mb-4">Budget Utilization</h5>
+                {% for budget in budgets %}
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="fw-semibold">{{ budget.category.name }} ({{ budget.department.code }})</span>
+                        <span class="text-muted">{{ budget.utilization_percent|floatformat:1 }}%</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar {% if budget.utilization_percent > 90 %}bg-danger{% elif budget.utilization_percent > 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ budget.utilization_percent }}%" 
+                             aria-valuenow="{{ budget.utilization_percent }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">Spent: ₹{{ budget.spent_amount }}</small>
+                        <small class="text-muted">Total: ₹{{ budget.allocated_amount }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted">No budget data available for this year.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Monthly Performance Chart
+    const monthlyData = {{ monthly_data|safe }};
+    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+            labels: monthlyData.map(d => d.month),
+            datasets: [
+                {
+                    label: 'Income',
+                    data: monthlyData.map(d => d.income),
+                    backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                    borderColor: 'rgba(39, 174, 96, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5
+                },
+                {
+                    label: 'Expense',
+                    data: monthlyData.map(d => d.expense),
+                    backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                    borderColor: 'rgba(231, 76, 60, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { drawBorder: false } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Category Breakdown Chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for cat in category_expenses %}'{{ cat.category__name|escapejs }}',{% endfor %}],
+            datasets: [{
+                data: [{% for cat in category_expenses %}{{ cat.total }},{% endfor %}],
+                backgroundColor: [
+                    '#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#34495e', '#1abc9c', '#e67e22'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            cutout: '70%'
+        }
+    });
+</script>
+{% endblock %}

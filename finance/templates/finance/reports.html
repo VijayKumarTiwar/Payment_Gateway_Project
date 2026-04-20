@@ -1,0 +1,162 @@
+{% extends 'finance/base.html' %}
+
+{% block title %}Financial Reports | Corporate Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold">Financial Reports ({{ current_year }})</h2>
+    <button class="btn btn-outline-secondary" onclick="window.print()">
+        <i class="bi bi-printer"></i> Print Report
+    </button>
+</div>
+
+<div class="row g-4">
+    <!-- Category Type Summary -->
+    <div class="col-12">
+        <div class="card table-card">
+            <div class="card-body">
+                <h5 class="card-title fw-bold mb-4">Summary by Category Type</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Category Type</th>
+                                <th class="text-end">Income</th>
+                                <th class="text-end">Expense</th>
+                                <th class="text-end">Net Position</th>
+                                <th>Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in category_type_summary %}
+                            <tr>
+                                <td class="fw-semibold text-capitalize">{{ item.type }}</td>
+                                <td class="text-end text-success">₹{{ item.income|floatformat:2 }}</td>
+                                <td class="text-end text-danger">₹{{ item.expense|floatformat:2 }}</td>
+                                <td class="text-end fw-bold {% if item.net >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                                    ₹{{ item.net|floatformat:2 }}
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 6px; width: 100px;">
+                                        {% if item.income > 0 or item.expense > 0 %}
+                                            {% with total=item.income|add:item.expense %}
+                                            <div class="progress-bar bg-success" style="width: {% widthratio item.income total 100 %}%"></div>
+                                            <div class="progress-bar bg-danger" style="width: {% widthratio item.expense total 100 %}%"></div>
+                                            {% endwith %}
+                                        {% else %}
+                                            <div class="progress-bar bg-light" style="width: 100%"></div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Summary -->
+    <div class="col-md-6">
+        <div class="card table-card h-100">
+            <div class="card-body">
+                <h5 class="card-title fw-bold mb-4">Expenditure by Department</h5>
+                <div class="chart-container mb-4">
+                    <canvas id="deptChart"></canvas>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Department</th>
+                                <th class="text-end">Total Spend</th>
+                                <th class="text-end">Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dept in dept_summary %}
+                            <tr>
+                                <td>{{ dept.department__name|default:"General / Unassigned" }}</td>
+                                <td class="text-end fw-semibold">₹{{ dept.total|floatformat:2 }}</td>
+                                <td class="text-end">{{ dept.count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Trends -->
+    <div class="col-md-6">
+        <div class="card table-card h-100">
+            <div class="card-body">
+                <h5 class="card-title fw-bold mb-4">Monthly Cash Flow Trend</h5>
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+                <div class="mt-4 p-3 bg-light rounded">
+                    <h6 class="fw-bold mb-2 small text-uppercase text-muted">Analysis Note</h6>
+                    <p class="small mb-0">The above chart tracks the monthly liquidity position. Higher income spikes usually correlate with quarterly billing cycles, while expenses remain relatively stable across operations.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Department Breakdown
+    const deptCtx = document.getElementById('deptChart').getContext('2d');
+    new Chart(deptCtx, {
+        type: 'pie',
+        data: {
+            labels: [{% for dept in dept_summary %}'{{ dept.department__name|default:"General" }}',{% endfor %}],
+            datasets: [{
+                data: [{% for dept in dept_summary %}{{ dept.total }},{% endfor %}],
+                backgroundColor: ['#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right' } }
+        }
+    });
+
+    // Trend Chart (Fetch from API)
+    fetch('{% url "api_monthly_data" %}')
+        .then(response => response.json())
+        .then(data => {
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.month),
+                    datasets: [
+                        {
+                            label: 'Net Cash Flow',
+                            data: data.map(d => d.income - d.expense),
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: '#f0f0f0' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        });
+</script>
+{% endblock %}

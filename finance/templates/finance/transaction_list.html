@@ -1,0 +1,132 @@
+{% extends 'finance/base.html' %}
+
+{% block title %}Transactions | Corporate Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold">Transactions</h2>
+    <a href="{% url 'transaction_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> New Transaction
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card table-card p-3 mb-4">
+    <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label text-muted small fw-bold">Search</label>
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" name="search" class="form-control border-start-0" placeholder="Description or ref..." value="{{ request.GET.search }}">
+            </div>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small fw-bold">Type</label>
+            <select name="type" class="form-select">
+                <option value="">All Types</option>
+                <option value="INCOME" {% if request.GET.type == 'INCOME' %}selected{% endif %}>Income</option>
+                <option value="EXPENSE" {% if request.GET.type == 'EXPENSE' %}selected{% endif %}>Expense</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small fw-bold">Status</label>
+            <select name="status" class="form-select">
+                <option value="">All Status</option>
+                <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>Pending</option>
+                <option value="APPROVED" {% if request.GET.status == 'APPROVED' %}selected{% endif %}>Approved</option>
+                <option value="RECONCILED" {% if request.GET.status == 'RECONCILED' %}selected{% endif %}>Reconciled</option>
+                <option value="REJECTED" {% if request.GET.status == 'REJECTED' %}selected{% endif %}>Rejected</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small fw-bold">Category</label>
+            <select name="category" class="form-select">
+                <option value="">All Categories</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"i" %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small fw-bold">Department</label>
+            <select name="department" class="form-select">
+                <option value="">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}" {% if request.GET.department == dept.id|stringformat:"i" %}selected{% endif %}>{{ dept.code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small fw-bold">Payment Method</label>
+            <select name="payment_method" class="form-select">
+                <option value="">All Methods</option>
+                {% for method in payment_methods %}
+                <option value="{{ method.id }}" {% if request.GET.payment_method == method.id|stringformat:"i" %}selected{% endif %}>{{ method.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-secondary w-100">Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Transactions Table -->
+<div class="card table-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Date</th>
+                        <th>Reference</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Dept/Method</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th class="pe-4 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr>
+                        <td class="ps-4">{{ transaction.date|date:"d M, Y" }}</td>
+                        <td><small class="text-muted">{{ transaction.reference_number|default:"-" }}</small></td>
+                        <td>
+                            <div class="fw-semibold">{{ transaction.description }}</div>
+                            <small class="text-muted">{{ transaction.created_by.username }}</small>
+                        </td>
+                        <td><span class="badge bg-light text-dark">{{ transaction.category.name }}</span></td>
+                        <td>
+                            <div class="small fw-semibold">{{ transaction.department.code|default:"-" }}</div>
+                            <div class="small text-muted">{{ transaction.payment_method.name|default:"-" }}</div>
+                        </td>
+                        <td class="fw-bold {% if transaction.transaction_type == 'INCOME' %}text-success{% else %}text-danger{% endif %}">
+                            {% if transaction.transaction_type == 'INCOME' %}+{% else %}-{% endif %}₹{{ transaction.amount }}
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ transaction.status|lower }}">
+                                {{ transaction.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="pe-4 text-end">
+                            <a href="{% url 'transaction_edit' transaction.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="text-muted mb-3">No transactions found matching your criteria.</div>
+                            <a href="{% url 'transaction_create' %}" class="btn btn-sm btn-primary">Add Your First Transaction</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
