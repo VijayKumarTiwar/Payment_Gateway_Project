@@ -24,7 +24,7 @@ def get_expense_forecast():
     df['date'] = pd.to_datetime(df['date'])
     
     # Aggregate by month
-    df_monthly = df.resample('M', on='date').sum().reset_index()
+    df_monthly = df.resample('ME', on='date').sum().reset_index()
     
     # Need at least 2 months for prediction
     if len(df_monthly) < 2:
@@ -65,10 +65,10 @@ def detect_anomalies():
     """
     anomalies = []
     
-    # Fetch all approved expenses
+    # Fetch all approved/reconciled expenses
     transactions = Transaction.objects.filter(
         transaction_type='EXPENSE',
-        status='APPROVED'
+        status__in=['APPROVED', 'RECONCILED']
     ).select_related('category')
     
     if not transactions:
