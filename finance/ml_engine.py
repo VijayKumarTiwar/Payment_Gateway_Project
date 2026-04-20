@@ -22,6 +22,7 @@ def get_expense_forecast():
     # 2. Convert to Pandas DataFrame
     df = pd.DataFrame(list(expenses))
     df['date'] = pd.to_datetime(df['date'])
+    df['total'] = df['total'].astype(float)
     
     # Aggregate by month
     df_monthly = df.resample('ME', on='date').sum().reset_index()
@@ -75,6 +76,8 @@ def detect_anomalies():
         return []
     
     df = pd.DataFrame(list(transactions.values('id', 'amount', 'category__name', 'description')))
+    if not df.empty:
+        df['amount'] = df['amount'].astype(float)
     
     for cat_name in df['category__name'].unique():
         cat_df = df[df['category__name'] == cat_name]
